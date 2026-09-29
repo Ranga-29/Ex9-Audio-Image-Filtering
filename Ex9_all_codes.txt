@@ -1,0 +1,768 @@
+EX 9: AUDIO/IMAGE ACQUISITION AND FILTERING
+================================================================================
+
+================================================================================
+1. PRESTORED IMAGE - SPYDER (Windows laptop)
+File: prestored_image_denoising_spyder.py
+================================================================================
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)[:, None]
+    return np.concatenate((E + W * O, E - W * O))
+
+def fft2(x):
+    return fft(fft(x).T).T
+
+def ifft2(X):
+    return np.conj(fft2(np.conj(X))) / X.size
+
+def centre(X):
+    return np.roll(X, (256, 512), axis=(0, 1))
+
+bgr = cv2.resize(cv2.imread(r"C:\Users\RajRa\Downloads\bridge.png"), (1024, 512))
+rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+img = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(float)
+
+noisy = np.clip(img + np.random.normal(0, 30, img.shape), 0, 255)
+X = fft2(noisy)
+
+u = np.arange(512) - 256
+v = np.arange(1024) - 512
+D = np.sqrt(u[:, None] ** 2 + v[None, :] ** 2)
+H = centre(np.exp(-D ** 2 / (2 * 150 ** 2)))
+y = np.clip(np.real(ifft2(X * H)), 0, 255)
+
+plt.figure(figsize=(15, 6))
+plt.subplot(2, 3, 1)
+plt.imshow(rgb, cmap='gray')
+plt.title('Input Image')
+plt.axis('off')
+
+plt.subplot(2, 3, 2)
+plt.imshow(img, cmap='gray')
+plt.title('Grayscale')
+plt.axis('off')
+
+plt.subplot(2, 3, 3)
+plt.imshow(noisy, cmap='gray')
+plt.title('Gaussian Noise')
+plt.axis('off')
+
+plt.subplot(2, 3, 4)
+plt.imshow(centre(np.log(1 + np.abs(X))), cmap='gray')
+plt.title('Noisy Spectrum log|X(k,l)|')
+plt.axis('off')
+
+plt.subplot(2, 3, 5)
+plt.imshow(centre(H), cmap='gray')
+plt.title('Gaussian LPF H(k,l)')
+plt.axis('off')
+
+plt.subplot(2, 3, 6)
+plt.imshow(y, cmap='gray')
+plt.title('Gaussian LPF Filtered')
+plt.axis('off')
+
+plt.suptitle('Prestored Image: Noise Addition and Frequency-Domain Filtering')
+plt.tight_layout()
+plt.show()
+
+
+================================================================================
+1. PRESTORED IMAGE - RASPBERRY PI
+File: prestored_image_denoising_rpi.py
+================================================================================
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)[:, None]
+    return np.concatenate((E + W * O, E - W * O))
+
+def fft2(x):
+    return fft(fft(x).T).T
+
+def ifft2(X):
+    return np.conj(fft2(np.conj(X))) / X.size
+
+def centre(X):
+    return np.roll(X, (256, 512), axis=(0, 1))
+
+bgr = cv2.resize(cv2.imread('bridge.png'), (1024, 512))
+rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+img = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(float)
+
+noisy = np.clip(img + np.random.normal(0, 30, img.shape), 0, 255)
+X = fft2(noisy)
+
+u = np.arange(512) - 256
+v = np.arange(1024) - 512
+D = np.sqrt(u[:, None] ** 2 + v[None, :] ** 2)
+H = centre(np.exp(-D ** 2 / (2 * 150 ** 2)))
+y = np.clip(np.real(ifft2(X * H)), 0, 255)
+
+plt.figure(figsize=(15, 6))
+plt.subplot(2, 3, 1)
+plt.imshow(rgb, cmap='gray')
+plt.title('Input Image')
+plt.axis('off')
+
+plt.subplot(2, 3, 2)
+plt.imshow(img, cmap='gray')
+plt.title('Grayscale')
+plt.axis('off')
+
+plt.subplot(2, 3, 3)
+plt.imshow(noisy, cmap='gray')
+plt.title('Gaussian Noise')
+plt.axis('off')
+
+plt.subplot(2, 3, 4)
+plt.imshow(centre(np.log(1 + np.abs(X))), cmap='gray')
+plt.title('Noisy Spectrum log|X(k,l)|')
+plt.axis('off')
+
+plt.subplot(2, 3, 5)
+plt.imshow(centre(H), cmap='gray')
+plt.title('Gaussian LPF H(k,l)')
+plt.axis('off')
+
+plt.subplot(2, 3, 6)
+plt.imshow(y, cmap='gray')
+plt.title('Gaussian LPF Filtered')
+plt.axis('off')
+
+plt.suptitle('Prestored Image: Noise Addition and Frequency-Domain Filtering')
+plt.tight_layout()
+plt.show()
+
+
+================================================================================
+2. PRESTORED AUDIO - SPYDER (Windows laptop)
+File: prestored_audio_denoising_spyder.py
+================================================================================
+
+import numpy as np
+import matplotlib.pyplot as plt
+import sounddevice as sd
+from scipy.io import wavfile
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)
+    return np.concatenate((E + W * O, E - W * O))
+
+def ifft(X):
+    return np.conj(fft(np.conj(X))) / len(X)
+
+def overlap_add(x, h, N):
+    L = N - len(h) + 1
+    H = fft(np.concatenate((h, np.zeros(N - len(h)))))
+    y = np.zeros(len(x) + N)
+    for i in range(0, len(x), L):
+        xb = np.concatenate((x[i:i + L], np.zeros(N - len(x[i:i + L]))))
+        y[i:i + N] += np.real(ifft(fft(xb) * H))
+    return y[:len(x)]
+
+fs, x = wavfile.read(r"C:\Users\RajRa\Downloads\sptest.wav")
+if x.ndim > 1:
+    x = x[:, 0]
+x = x[:5 * fs]
+x = x / np.max(np.abs(x))
+t = np.arange(len(x)) / fs
+
+noisy = x + 0.05 * np.random.randn(len(x))
+
+M = 101
+wc = 2 * np.pi * 3000 / fs
+n = np.arange(M)
+hd = wc / np.pi * np.sinc(wc * (n - (M - 1) / 2) / np.pi)
+w = 0.54 - 0.46 * np.cos(2 * np.pi * n / (M - 1))
+h = hd * w
+
+y = overlap_add(noisy, h, 1024)
+
+sd.play(x, fs)
+sd.wait()
+sd.play(noisy, fs)
+sd.wait()
+sd.play(y, fs)
+sd.wait()
+
+f = np.arange(4096) * fs / 8192
+X = 20 * np.log10(np.abs(fft(x[:8192]))[:4096])
+Xn = 20 * np.log10(np.abs(fft(noisy[:8192]))[:4096])
+Y = 20 * np.log10(np.abs(fft(y[:8192]))[:4096])
+
+plt.figure(figsize=(12, 9))
+plt.subplot(3, 2, 1)
+plt.plot(t, x)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(a) Input Signal x(t)')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+plt.subplot(3, 2, 2)
+plt.plot(f, X)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(b) Input Spectrum |X(f)|')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+plt.subplot(3, 2, 3)
+plt.plot(t, noisy)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(c) Noisy Signal xn(t)')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+plt.subplot(3, 2, 4)
+plt.plot(f, Xn)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(d) Noisy Spectrum |Xn(f)|')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+plt.subplot(3, 2, 5)
+plt.plot(t, y)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(e) Filtered Signal y(t)')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+plt.subplot(3, 2, 6)
+plt.plot(f, Y)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(f) Filtered Spectrum |Y(f)|')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+plt.suptitle('Prestored Audio: Noise Addition and FIR Low-pass Filtering (fc = 3 kHz)')
+plt.tight_layout()
+plt.show()
+
+
+================================================================================
+2. PRESTORED AUDIO - RASPBERRY PI
+File: prestored_audio_denoising_rpi.py
+================================================================================
+
+import numpy as np
+import matplotlib.pyplot as plt
+import sounddevice as sd
+from scipy.io import wavfile
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)
+    return np.concatenate((E + W * O, E - W * O))
+
+def ifft(X):
+    return np.conj(fft(np.conj(X))) / len(X)
+
+def overlap_add(x, h, N):
+    L = N - len(h) + 1
+    H = fft(np.concatenate((h, np.zeros(N - len(h)))))
+    y = np.zeros(len(x) + N)
+    for i in range(0, len(x), L):
+        xb = np.concatenate((x[i:i + L], np.zeros(N - len(x[i:i + L]))))
+        y[i:i + N] += np.real(ifft(fft(xb) * H))
+    return y[:len(x)]
+
+fs, x = wavfile.read('sptest.wav')
+if x.ndim > 1:
+    x = x[:, 0]
+x = x[:5 * fs]
+x = x / np.max(np.abs(x))
+t = np.arange(len(x)) / fs
+
+noisy = x + 0.05 * np.random.randn(len(x))
+
+M = 101
+wc = 2 * np.pi * 3000 / fs
+n = np.arange(M)
+hd = wc / np.pi * np.sinc(wc * (n - (M - 1) / 2) / np.pi)
+w = 0.54 - 0.46 * np.cos(2 * np.pi * n / (M - 1))
+h = hd * w
+
+y = overlap_add(noisy, h, 1024)
+
+sd.play(x, fs)
+sd.wait()
+sd.play(noisy, fs)
+sd.wait()
+sd.play(y, fs)
+sd.wait()
+
+f = np.arange(4096) * fs / 8192
+X = 20 * np.log10(np.abs(fft(x[:8192]))[:4096])
+Xn = 20 * np.log10(np.abs(fft(noisy[:8192]))[:4096])
+Y = 20 * np.log10(np.abs(fft(y[:8192]))[:4096])
+
+plt.figure(figsize=(12, 9))
+plt.subplot(3, 2, 1)
+plt.plot(t, x)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(a) Input Signal x(t)')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+plt.subplot(3, 2, 2)
+plt.plot(f, X)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(b) Input Spectrum |X(f)|')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+plt.subplot(3, 2, 3)
+plt.plot(t, noisy)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(c) Noisy Signal xn(t)')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+plt.subplot(3, 2, 4)
+plt.plot(f, Xn)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(d) Noisy Spectrum |Xn(f)|')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+plt.subplot(3, 2, 5)
+plt.plot(t, y)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(e) Filtered Signal y(t)')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+plt.subplot(3, 2, 6)
+plt.plot(f, Y)
+plt.axhline(0, color='k')
+plt.axvline(0, color='k')
+plt.title('(f) Filtered Spectrum |Y(f)|')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+plt.suptitle('Prestored Audio: Noise Addition and FIR Low-pass Filtering (fc = 3 kHz)')
+plt.tight_layout()
+plt.show()
+
+
+================================================================================
+3. REAL-TIME IMAGE (CAMERA) - SPYDER (Windows laptop)
+File: realtime_camera_denoising_spyder.py
+================================================================================
+
+import cv2
+import numpy as np
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)[:, None]
+    return np.concatenate((E + W * O, E - W * O))
+
+def fft2(x):
+    return fft(fft(x).T).T
+
+def ifft2(X):
+    return np.conj(fft2(np.conj(X))) / X.size
+
+def centre(X):
+    return np.roll(X, (256, 256), axis=(0, 1))
+
+def label(a, title, h, scale):
+    a = cv2.copyMakeBorder(a, h, 0, 0, 0, cv2.BORDER_CONSTANT, value=(40, 40, 40))
+    w = cv2.getTextSize(title, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0]
+    cv2.putText(a, title, ((a.shape[1] - w) // 2, h - 14), cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 2)
+    return a
+
+def panel(a, title):
+    a = a.astype(np.uint8)
+    if a.ndim == 2:
+        a = cv2.cvtColor(a, cv2.COLOR_GRAY2BGR)
+    return label(a, title, 45, 0.8)
+
+u = np.arange(512) - 256
+D = np.sqrt(u[:, None] ** 2 + u[None, :] ** 2)
+H = centre(np.exp(-D ** 2 / (2 * 150 ** 2)))
+
+cap = cv2.VideoCapture(0)
+cv2.namedWindow('Real-time Image Filtering (press q to quit)', cv2.WINDOW_NORMAL)
+
+while True:
+    ret, frame = cap.read()
+    bgr = cv2.resize(frame, (512, 512))
+    img = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(float)
+    noisy = np.clip(img + np.random.normal(0, 30, img.shape), 0, 255)
+    X = fft2(noisy)
+    y = np.clip(np.real(ifft2(X * H)), 0, 255)
+    S = centre(np.log(1 + np.abs(X)))
+    top = np.hstack((panel(bgr, '(a) Input Image'), panel(img, '(b) Grayscale'), panel(noisy, '(c) Gaussian Noise (sigma = 30)')))
+    bottom = np.hstack((panel(255 * S / S.max(), '(d) Noisy Spectrum log|X(k,l)|'), panel(255 * centre(H), '(e) Gaussian LPF H(k,l), D0 = 150'), panel(y, '(f) Gaussian LPF Filtered')))
+    cv2.imshow('Real-time Image Filtering (press q to quit)', label(np.vstack((top, bottom)), 'Real-time Image: Noise Addition and Frequency-Domain Filtering', 60, 1.2))
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+cv2.waitKey(1)
+
+
+================================================================================
+3. REAL-TIME IMAGE (CAMERA) - RASPBERRY PI
+File: realtime_camera_denoising_rpi.py
+================================================================================
+
+import cv2
+import numpy as np
+from picamera2 import Picamera2
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)[:, None]
+    return np.concatenate((E + W * O, E - W * O))
+
+def fft2(x):
+    return fft(fft(x).T).T
+
+def ifft2(X):
+    return np.conj(fft2(np.conj(X))) / X.size
+
+def centre(X):
+    return np.roll(X, (128, 128), axis=(0, 1))
+
+def label(a, title, h, scale):
+    a = cv2.copyMakeBorder(a, h, 0, 0, 0, cv2.BORDER_CONSTANT, value=(40, 40, 40))
+    w = cv2.getTextSize(title, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0]
+    cv2.putText(a, title, ((a.shape[1] - w) // 2, h - 14), cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 2)
+    return a
+
+def panel(a, title):
+    a = a.astype(np.uint8)
+    if a.ndim == 2:
+        a = cv2.cvtColor(a, cv2.COLOR_GRAY2BGR)
+    return label(a, title, 30, 0.45)
+
+u = np.arange(256) - 128
+D = np.sqrt(u[:, None] ** 2 + u[None, :] ** 2)
+H = centre(np.exp(-D ** 2 / (2 * 75 ** 2)))
+
+cam = Picamera2()
+cam.configure(cam.create_preview_configuration(main={'format': 'RGB888', 'size': (640, 480)}))
+cam.start()
+cv2.namedWindow('Real-time Image Filtering (press q to quit)', cv2.WINDOW_NORMAL)
+
+while True:
+    bgr = cv2.resize(cam.capture_array(), (256, 256))
+    img = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(float)
+    noisy = np.clip(img + np.random.normal(0, 30, img.shape), 0, 255)
+    X = fft2(noisy)
+    y = np.clip(np.real(ifft2(X * H)), 0, 255)
+    S = centre(np.log(1 + np.abs(X)))
+    top = np.hstack((panel(bgr, '(a) Input Image'), panel(img, '(b) Grayscale'), panel(noisy, '(c) Gaussian Noise (sigma = 30)')))
+    bottom = np.hstack((panel(255 * S / S.max(), '(d) Noisy Spectrum log|X(k,l)|'), panel(255 * centre(H), '(e) Gaussian LPF H(k,l), D0 = 75'), panel(y, '(f) Gaussian LPF Filtered')))
+    cv2.imshow('Real-time Image Filtering (press q to quit)', label(np.vstack((top, bottom)), 'Real-time Image: Noise Addition and Frequency-Domain Filtering', 40, 0.7))
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cam.stop()
+cv2.destroyAllWindows()
+
+
+================================================================================
+4. REAL-TIME AUDIO (MIC) - SPYDER (Windows laptop)
+File: realtime_mic_denoising_spyder.py
+================================================================================
+
+import numpy as np
+import matplotlib.pyplot as plt
+import sounddevice as sd
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)
+    return np.concatenate((E + W * O, E - W * O))
+
+def ifft(X):
+    return np.conj(fft(np.conj(X))) / len(X)
+
+fs = 16000
+N = 2048
+M = 101
+L = N - M + 1
+
+wc = 2 * np.pi * 3000 / fs
+n = np.arange(M)
+hd = wc / np.pi * np.sinc(wc * (n - (M - 1) / 2) / np.pi)
+w = 0.54 - 0.46 * np.cos(2 * np.pi * n / (M - 1))
+h = hd * w
+H = fft(np.concatenate((h, np.zeros(N - M))))
+
+x = np.zeros(L)
+xn = np.zeros(L)
+y = np.zeros(L)
+tail = np.zeros(M - 1)
+
+def callback(indata, frames, time, status):
+    global x, xn, y, tail
+    gain = min(0.8 / (np.max(np.abs(indata)) + 1e-12), 40)
+    x = gain * indata[:, 0]
+    xn = x + 0.05 * np.random.randn(L)
+    yb = np.real(ifft(fft(np.concatenate((xn, np.zeros(M - 1)))) * H))
+    yb[:M - 1] += tail
+    tail = yb[L:]
+    y = yb[:L]
+
+t = np.arange(L) / fs * 1000
+f = np.arange(N // 2) * fs / N
+
+plt.ion()
+fig = plt.figure(figsize=(12, 9))
+stream = sd.InputStream(samplerate=fs, blocksize=L, channels=1, callback=callback)
+stream.start()
+
+while plt.fignum_exists(fig.number):
+    X = 20 * np.log10(np.abs(fft(np.concatenate((x, np.zeros(M - 1)))))[:N // 2] + 1e-12)
+    Xn = 20 * np.log10(np.abs(fft(np.concatenate((xn, np.zeros(M - 1)))))[:N // 2] + 1e-12)
+    Y = 20 * np.log10(np.abs(fft(np.concatenate((y, np.zeros(M - 1)))))[:N // 2] + 1e-12)
+    plt.clf()
+
+    plt.subplot(3, 2, 1)
+    plt.plot(t, x)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.xlim(0, 20)
+    plt.ylim(-1, 1)
+    plt.title('(a) Input Signal x(t)')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Amplitude')
+
+    plt.subplot(3, 2, 2)
+    plt.plot(f, X)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.ylim(-80, 40)
+    plt.title('(b) Input Spectrum |X(f)|')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+
+    plt.subplot(3, 2, 3)
+    plt.plot(t, xn)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.xlim(0, 20)
+    plt.ylim(-1, 1)
+    plt.title('(c) Noisy Signal xn(t)')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Amplitude')
+
+    plt.subplot(3, 2, 4)
+    plt.plot(f, Xn)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.ylim(-80, 40)
+    plt.title('(d) Noisy Spectrum |Xn(f)|')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+
+    plt.subplot(3, 2, 5)
+    plt.plot(t, y)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.xlim(0, 20)
+    plt.ylim(-1, 1)
+    plt.title('(e) Filtered Signal y(t)')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Amplitude')
+
+    plt.subplot(3, 2, 6)
+    plt.plot(f, Y)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.ylim(-80, 40)
+    plt.title('(f) Filtered Spectrum |Y(f)|')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+
+    plt.suptitle('Real-time Audio: Noise Addition and FIR Low-pass Filtering (fc = 3 kHz)')
+    plt.tight_layout()
+    plt.pause(0.05)
+
+stream.stop()
+stream.close()
+
+
+================================================================================
+4. REAL-TIME AUDIO (MIC) - RASPBERRY PI
+File: realtime_mic_denoising_rpi.py
+================================================================================
+
+import numpy as np
+import matplotlib.pyplot as plt
+import sounddevice as sd
+
+def fft(x):
+    N = len(x)
+    if N == 1:
+        return x
+    E = fft(x[0::2])
+    O = fft(x[1::2])
+    W = np.exp(-2j * np.pi * np.arange(N // 2) / N)
+    return np.concatenate((E + W * O, E - W * O))
+
+def ifft(X):
+    return np.conj(fft(np.conj(X))) / len(X)
+
+fs = 16000
+N = 2048
+M = 101
+L = N - M + 1
+
+wc = 2 * np.pi * 3000 / fs
+n = np.arange(M)
+hd = wc / np.pi * np.sinc(wc * (n - (M - 1) / 2) / np.pi)
+w = 0.54 - 0.46 * np.cos(2 * np.pi * n / (M - 1))
+h = hd * w
+H = fft(np.concatenate((h, np.zeros(N - M))))
+
+x = np.zeros(L)
+xn = np.zeros(L)
+y = np.zeros(L)
+tail = np.zeros(M - 1)
+
+def callback(indata, frames, time, status):
+    global x, xn, y, tail
+    gain = min(0.8 / (np.max(np.abs(indata)) + 1e-12), 40)
+    x = gain * indata[:, 0]
+    xn = x + 0.05 * np.random.randn(L)
+    yb = np.real(ifft(fft(np.concatenate((xn, np.zeros(M - 1)))) * H))
+    yb[:M - 1] += tail
+    tail = yb[L:]
+    y = yb[:L]
+
+t = np.arange(L) / fs * 1000
+f = np.arange(N // 2) * fs / N
+
+plt.ion()
+fig = plt.figure(figsize=(12, 9))
+stream = sd.InputStream(samplerate=fs, blocksize=L, channels=1, callback=callback)
+stream.start()
+
+while plt.fignum_exists(fig.number):
+    X = 20 * np.log10(np.abs(fft(np.concatenate((x, np.zeros(M - 1)))))[:N // 2] + 1e-12)
+    Xn = 20 * np.log10(np.abs(fft(np.concatenate((xn, np.zeros(M - 1)))))[:N // 2] + 1e-12)
+    Y = 20 * np.log10(np.abs(fft(np.concatenate((y, np.zeros(M - 1)))))[:N // 2] + 1e-12)
+    plt.clf()
+
+    plt.subplot(3, 2, 1)
+    plt.plot(t, x)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.xlim(0, 20)
+    plt.ylim(-1, 1)
+    plt.title('(a) Input Signal x(t)')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Amplitude')
+
+    plt.subplot(3, 2, 2)
+    plt.plot(f, X)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.ylim(-80, 40)
+    plt.title('(b) Input Spectrum |X(f)|')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+
+    plt.subplot(3, 2, 3)
+    plt.plot(t, xn)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.xlim(0, 20)
+    plt.ylim(-1, 1)
+    plt.title('(c) Noisy Signal xn(t)')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Amplitude')
+
+    plt.subplot(3, 2, 4)
+    plt.plot(f, Xn)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.ylim(-80, 40)
+    plt.title('(d) Noisy Spectrum |Xn(f)|')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+
+    plt.subplot(3, 2, 5)
+    plt.plot(t, y)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.xlim(0, 20)
+    plt.ylim(-1, 1)
+    plt.title('(e) Filtered Signal y(t)')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Amplitude')
+
+    plt.subplot(3, 2, 6)
+    plt.plot(f, Y)
+    plt.axhline(0, color='k')
+    plt.axvline(0, color='k')
+    plt.ylim(-80, 40)
+    plt.title('(f) Filtered Spectrum |Y(f)|')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+
+    plt.suptitle('Real-time Audio: Noise Addition and FIR Low-pass Filtering (fc = 3 kHz)')
+    plt.tight_layout()
+    plt.pause(0.05)
+
+stream.stop()
+stream.close()
+
+
